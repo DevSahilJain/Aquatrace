@@ -14,3 +14,20 @@ __v0_jsx-dev-runtime.ts
 node_modules
 .next/
 .DS_Store
+# Python virtual environments
+backend/.venv/
+backend/.venv312/
+backend/venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+
+# Next.js build output
+.next/
+node_modules/
