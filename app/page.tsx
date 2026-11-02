@@ -1,15 +1,15 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { AlertTriangle, BarChart3, ChevronRight, CircleHelp, Database, Download, Droplets, Gauge, LayoutDashboard, LineChart, Network, Play, RotateCcw, Settings, SlidersHorizontal, Sparkles, Waves, Zap } from 'lucide-react'
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Separator } from '@/components/ui/separator'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Download } from 'lucide-react'
+import { Sidebar } from '@/components/Sidebar'
+import { OverviewPage } from '@/components/pages/OverviewPage'
+import { SensorRatingPage } from '@/components/pages/SensorRatingPage'
+import { LeakAnalysisPage } from '@/components/pages/LeakAnalysisPage'
+import { SimulationPage } from '@/components/pages/SimulationPage'
+import { HistoryPage } from '@/components/pages/HistoryPage'
 
 type PipeId = 'P1' | 'P2' | 'P3' | 'P4' | 'P5'
 type Pipe = { id: PipeId; name: string; expected: number; observed: number; leak: number; severity: string; priority: string }
@@ -22,27 +22,15 @@ const defaultPipes: Pipe[] = [
   { id: 'P5', name: 'Lab spur', expected: 890, observed: 876, leak: 14, severity: 'Low', priority: 'Monitor' },
 ]
 
-const navItems = [
-  { label: 'Overview', icon: LayoutDashboard }, { label: 'Pipe Network', icon: Network }, { label: 'Sensor Readings', icon: Gauge },
-  { label: 'Leak Analysis', icon: LineChart }, { label: 'Simulation History', icon: Database }, { label: 'Settings', icon: Settings },
-]
-
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
 
-function StatCard({ label, value, unit, detail, icon: Icon, tone = 'blue' }: { label: string; value: string; unit: string; detail: string; icon: typeof Gauge; tone?: 'blue' | 'teal' | 'amber' | 'purple' }) {
-  const tones = { blue: 'bg-blue-50 text-blue-600', teal: 'bg-teal-50 text-teal-600', amber: 'bg-amber-50 text-amber-600', purple: 'bg-violet-50 text-violet-600' }
-  return <Card className="shadow-none"><CardContent className="flex items-start justify-between p-5"><div><p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</p><p className="mt-3 text-2xl font-semibold tracking-tight text-slate-900">{value}<span className="ml-1 text-sm font-medium text-muted-foreground">{unit}</span></p><p className="mt-2 text-xs text-muted-foreground">{detail}</p></div><div className={`flex size-10 items-center justify-center rounded-xl ${tones[tone]}`}><Icon data-icon="inline-start" /></div></CardContent></Card>
-}
-
-function NetworkMap({ pipes }: { pipes: Pipe[] }) {
-  return <div className="relative min-h-[300px] overflow-hidden rounded-xl border border-slate-200 bg-slate-50/70 p-5">
-    <div className="absolute inset-x-12 top-1/2 h-1 -translate-y-1/2 rounded bg-slate-200" />
-    <div className="absolute left-1/2 top-1/2 h-32 w-1 -translate-y-1/2 rounded bg-slate-200" />
-    <div className="absolute left-1/2 top-[22%] h-20 w-1 -translate-x-1/2 rounded bg-slate-200" />
-    <div className="absolute left-1/2 top-[78%] h-20 w-1 -translate-x-1/2 rounded bg-slate-200" />
-    <div className="relative flex h-[260px] items-center justify-between gap-2"><div className="flex flex-col items-center gap-2"><div className="flex size-12 items-center justify-center rounded-full bg-[#102a43] text-xs font-semibold text-white">IN</div><span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Reservoir</span></div>{pipes.map((pipe, index) => <div key={pipe.id} className="flex flex-col items-center gap-2"><div className={`flex size-11 items-center justify-center rounded-full border-4 bg-white text-xs font-bold shadow-sm ${pipe.leak > 40 ? 'border-amber-400 text-amber-700' : pipe.leak > 20 ? 'border-blue-400 text-blue-700' : 'border-teal-400 text-teal-700'}`}>{pipe.id}</div><span className="text-[10px] font-semibold text-slate-700">{pipe.name}</span><Badge variant={pipe.leak > 40 ? 'destructive' : 'secondary'} className="text-[9px]">{pipe.leak > 40 ? 'Alert' : pipe.leak > 20 ? 'Review' : 'Normal'}</Badge></div>)}<div className="flex flex-col items-center gap-2"><div className="flex size-12 items-center justify-center rounded-full bg-teal-600 text-xs font-semibold text-white">OUT</div><span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Campus</span></div></div>
-    <div className="absolute bottom-3 left-4 flex items-center gap-4 text-[10px] text-muted-foreground"><span className="flex items-center gap-1.5"><i className="size-2 rounded-full bg-teal-400" />Normal</span><span className="flex items-center gap-1.5"><i className="size-2 rounded-full bg-blue-400" />Review</span><span className="flex items-center gap-1.5"><i className="size-2 rounded-full bg-amber-400" />Possible leak</span></div>
-  </div>
+const pageTitles: Record<string, string> = {
+  Overview: 'Dashboard overview',
+  'Pipe Network': 'Pipe network',
+  'Sensor Rating': 'Sensor rating',
+  'Leak Analysis': 'Leak analysis',
+  Simulation: 'Simulation',
+  History: 'History',
 }
 
 export default function Page() {
@@ -53,7 +41,12 @@ export default function Page() {
   const [threshold, setThreshold] = useState('5')
   const [status, setStatus] = useState<'idle' | 'running' | 'success' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState('')
-  const [history, setHistory] = useState([{ time: 'Today, 10:42', loss: 120, rate: '4.7%', status: 'Alert detected' }, { time: 'Today, 09:15', loss: 88, rate: '3.4%', status: 'Within threshold' }, { time: 'Yesterday, 16:30', loss: 64, rate: '2.5%', status: 'Within threshold' }])
+  const [history, setHistory] = useState([
+    { time: 'Today, 10:42', loss: 120, rate: '4.7%', status: 'Alert detected' },
+    { time: 'Today, 09:15', loss: 88, rate: '3.4%', status: 'Within threshold' },
+    { time: 'Yesterday, 16:30', loss: 64, rate: '2.5%', status: 'Within threshold' },
+  ])
+
   const totalExpected = pipes.reduce((sum, pipe) => sum + pipe.expected, 0)
   const totalLoss = pipes.reduce((sum, pipe) => sum + pipe.leak, 0)
   const observed = totalExpected - totalLoss
@@ -61,7 +54,10 @@ export default function Page() {
   const chartData = pipes.map((pipe) => ({ name: pipe.id, expected: pipe.expected, observed: pipe.observed, deficit: pipe.leak, estimated: pipe.leak * 0.97 }))
   const hourlyData = useMemo(() => [0, 1, 2, 3, 4, 5, 6, 7].map((hour) => ({ time: `${hour * 3}:00`, expected: totalExpected + hour * 5, observed: observed - (hour % 3) * 9 })), [totalExpected, observed])
 
-  function updateLeak(id: PipeId, value: string) { const numeric = Math.max(0, Number(value) || 0); setPipes((current) => current.map((pipe) => pipe.id === id ? { ...pipe, leak: numeric, observed: pipe.expected - numeric } : pipe)) }
+  function updateLeak(id: PipeId, value: string) {
+    const numeric = Math.max(0, Number(value) || 0)
+    setPipes((current) => current.map((pipe) => pipe.id === id ? { ...pipe, leak: numeric, observed: pipe.expected - numeric } : pipe))
+  }
 
   async function runSimulation() {
     if (Number(noise) < 0 || Number(threshold) < 0 || !seed.trim()) {
@@ -120,17 +116,47 @@ export default function Page() {
     }
   }
 
-  function reset() { setPipes(defaultPipes); setNoise('2.5'); setSeed('42'); setThreshold('5'); setStatus('idle'); setErrorMessage('') }
-  function exportCsv() { const rows = [['Pipe', 'Expected Flow (L/h)', 'Observed Flow (L/h)', 'Deficit (L/h)', 'Estimated Leak (L/h)'], ...pipes.map((p) => [p.id, p.expected, p.observed, p.leak, (p.leak * .97).toFixed(1)])]; const csv = rows.map((row) => row.join(',')).join('\n'); const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); link.download = 'aquatrace-sensor-readings.csv'; link.click(); URL.revokeObjectURL(link.href) }
+  function reset() {
+    setPipes(defaultPipes)
+    setNoise('2.5')
+    setSeed('42')
+    setThreshold('5')
+    setStatus('idle')
+    setErrorMessage('')
+  }
 
-  return <div className="min-h-screen bg-[#f6f8fb] text-slate-900 md:flex">
-    <aside className="w-full shrink-0 bg-[#102a43] text-slate-300 md:min-h-screen md:w-64"><div className="flex items-center gap-3 px-6 py-6"><div className="flex size-9 items-center justify-center rounded-xl bg-teal-400 text-[#102a43]"><Droplets data-icon="inline-start" /></div><div><p className="text-base font-bold tracking-tight text-white">AquaTrace</p><p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Engineering lab</p></div></div><Separator className="bg-white/10" /><nav className="flex gap-1 overflow-x-auto p-3 md:flex-col md:gap-1 md:overflow-visible" aria-label="Primary navigation">{navItems.map(({ label, icon: Icon }) => <button key={label} onClick={() => setActive(label)} className={`flex shrink-0 items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors ${active === label ? 'bg-teal-400/15 text-teal-300' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}><Icon data-icon="inline-start" />{label}{active === label && <ChevronRight className="ml-auto hidden md:block" />}</button>)}</nav><div className="mx-5 mt-5 hidden rounded-xl border border-white/10 bg-white/5 p-4 md:block"><div className="mb-3 flex items-center gap-2 text-xs font-semibold text-slate-300"><Sparkles className="text-teal-300" />Backend connected</div><p className="text-xs leading-5 text-slate-400">Leak estimates from FastAPI solver at <code className="rounded bg-white/10 px-1 py-0.5 text-[10px]">{API_URL}</code>.</p></div><div className="mt-auto hidden p-5 md:block"><p className="text-[10px] uppercase tracking-widest text-slate-500">CAT-2 project</p><p className="mt-1 text-xs text-slate-400">Linear Algebra + Data Foundations</p></div></aside>
-    <main className="min-w-0 flex-1"><header className="flex flex-col gap-4 border-b border-slate-200 bg-white px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-8"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-600">University engineering demonstrator</p><h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">{active}</h1></div><div className="flex items-center gap-3"><Badge variant="outline" className="gap-1.5 border-teal-200 bg-teal-50 text-teal-700"><span className="size-1.5 rounded-full bg-teal-500" />Simulation online</Badge><Button variant="outline" size="sm" onClick={exportCsv}><Download data-icon="inline-start" />Export CSV</Button></div></header>
-      <div className="mx-auto max-w-[1480px] space-y-6 p-5 sm:p-8"><Alert className="border-teal-100 bg-teal-50/70 text-teal-950"><CircleHelp className="text-teal-600" /><AlertTitle>Backend connected</AlertTitle><AlertDescription className="text-teal-800">Leak estimates come from the FastAPI solver at <code className="rounded bg-white px-1.5 py-0.5 text-xs">{API_URL}</code>. Results are simulated estimates; they do not confirm real leaks.</AlertDescription></Alert>
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><StatCard label="Expected supply flow" value={totalExpected.toLocaleString()} unit="L/h" detail="Network baseline" icon={Waves} tone="blue" /><StatCard label="Observed flow" value={observed.toLocaleString()} unit="L/h" detail="Latest sensor pass" icon={Gauge} tone="teal" /><StatCard label="Estimated water loss" value={totalLoss.toLocaleString()} unit="L/h" detail="Across 5 monitored pipes" icon={Droplets} tone="amber" /><StatCard label="Estimated loss" value={percent} unit="%" detail={`Alert threshold ${threshold}%`} icon={Zap} tone="purple" /></section>
-        <section className="grid gap-6 xl:grid-cols-[1.35fr_.65fr]"><Card className="shadow-none"><CardHeader className="flex-row items-start justify-between"><div><CardTitle>Flow balance</CardTitle><CardDescription>Expected versus observed network flow</CardDescription></div><Badge variant="secondary">Last 24 hours</Badge></CardHeader><CardContent><ResponsiveContainer width="100%" height={260}><AreaChart data={hourlyData}><defs><linearGradient id="expected" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#149e9a" stopOpacity={0.2}/><stop offset="95%" stopColor="#149e9a" stopOpacity={0}/></linearGradient></defs><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0"/><XAxis dataKey="time" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: '#64748b' }}/><YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: '#64748b' }}/><Tooltip/><Area type="monotone" dataKey="expected" stroke="#149e9a" fill="url(#expected)" strokeWidth={2} name="Expected"/><Area type="monotone" dataKey="observed" stroke="#2563eb" fill="none" strokeWidth={2} name="Observed"/></AreaChart></ResponsiveContainer></CardContent></Card><Card className="shadow-none"><CardHeader><CardTitle>Network status</CardTitle><CardDescription>Live topology health</CardDescription></CardHeader><CardContent><NetworkMap pipes={pipes} /></CardContent></Card></section>
-        <section className="grid gap-6 xl:grid-cols-[.8fr_1.2fr]"><Card className="shadow-none"><CardHeader><CardTitle>Simulation controls</CardTitle><CardDescription>Configure sensor readings and run the FastAPI leak solver.</CardDescription></CardHeader><CardContent className="flex flex-col gap-5"><div className="grid grid-cols-2 gap-3">{pipes.map((pipe) => <label key={pipe.id} className="flex flex-col gap-1.5 text-xs font-semibold text-slate-600">{pipe.id} leak rate<input type="number" min="0" step="1" value={pipe.leak} onChange={(event) => updateLeak(pipe.id, event.target.value)} className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm font-normal text-slate-900 outline-none ring-teal-500 focus:ring-2" /></label>)}</div><Separator /><div className="grid grid-cols-3 gap-3"><label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-600">Noise σ (L/h)<Input type="number" min="0" step="0.1" value={noise} onChange={(e) => setNoise(e.target.value)} /></label><label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-600">Random seed<Input value={seed} onChange={(e) => setSeed(e.target.value)} /></label><label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-600">Threshold %<Input type="number" min="0" value={threshold} onChange={(e) => setThreshold(e.target.value)} /></label></div>{status === 'error' && <p className="text-xs font-medium text-destructive">{errorMessage || 'Enter a seed and non-negative values before running.'}</p>}{status === 'success' && <p className="text-xs font-medium text-teal-700">Simulation complete. Dashboard values updated from backend.</p>}<div className="flex flex-wrap gap-2"><Button onClick={runSimulation} disabled={status === 'running'}><Play data-icon="inline-start" />{status === 'running' ? 'Running…' : 'Run simulation'}</Button><Button variant="outline" onClick={reset}><RotateCcw data-icon="inline-start" />Reset</Button><Button variant="ghost" onClick={exportCsv}><Download data-icon="inline-start" />CSV</Button></div></CardContent></Card><Card className="shadow-none"><CardHeader className="flex-row items-start justify-between"><div><CardTitle>Leak analysis ranking</CardTitle><CardDescription>Non-negative least squares estimate · demo output</CardDescription></div><Badge variant="outline" className="gap-1.5"><SlidersHorizontal />5 pipes ranked</Badge></CardHeader><CardContent className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Pipe</TableHead><TableHead>Estimated leak</TableHead><TableHead>Severity</TableHead><TableHead>Inspection priority</TableHead></TableRow></TableHeader><TableBody>{[...pipes].sort((a,b) => b.leak-a.leak).map((pipe) => <TableRow key={pipe.id}><TableCell><div className="font-semibold">{pipe.id}</div><div className="text-xs text-muted-foreground">{pipe.name}</div></TableCell><TableCell className="font-semibold">{(pipe.leak * .97).toFixed(1)} L/h</TableCell><TableCell><Badge variant={pipe.severity === 'High' ? 'destructive' : pipe.severity === 'Medium' ? 'default' : 'secondary'}>{pipe.leak > 40 ? 'High' : pipe.leak > 20 ? 'Medium' : 'Low'}</Badge></TableCell><TableCell className="text-sm">{pipe.leak > 40 ? 'Inspect now' : pipe.leak > 20 ? 'Schedule' : 'Monitor'}</TableCell></TableRow>)}</TableBody></Table></CardContent></Card></section>
-        <section className="grid gap-6 xl:grid-cols-[1fr_1fr]"><Card className="shadow-none"><CardHeader><CardTitle>Pipe-level deficit</CardTitle><CardDescription>Flow deficit by sensor segment</CardDescription></CardHeader><CardContent><ResponsiveContainer width="100%" height={230}><BarChart data={chartData}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0"/><XAxis dataKey="name" tickLine={false} axisLine={false}/><YAxis tickLine={false} axisLine={false}/><Tooltip/><Bar dataKey="deficit" name="Deficit (L/h)" radius={[5,5,0,0]}>{chartData.map((entry) => <Cell key={entry.name} fill={entry.deficit > 40 ? '#f59e0b' : '#2dd4bf'} />)}</Bar></BarChart></ResponsiveContainer></CardContent></Card><Card className="shadow-none"><CardHeader><CardTitle>Simulation history</CardTitle><CardDescription>Recent frontend runs</CardDescription></CardHeader><CardContent className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Timestamp</TableHead><TableHead>Loss</TableHead><TableHead>Rate</TableHead><TableHead>Status</TableHead></TableRow></TableHeader><TableBody>{history.map((entry, index) => <TableRow key={`${entry.time}-${index}`}><TableCell className="text-sm">{entry.time}</TableCell><TableCell>{entry.loss} L/h</TableCell><TableCell>{entry.rate}</TableCell><TableCell><Badge variant={entry.status.includes('Alert') ? 'destructive' : 'secondary'}>{entry.status}</Badge></TableCell></TableRow>)}</TableBody></Table></CardContent></Card></section>
-        <Card className="border-[#b8deda] bg-[#eefaf8] shadow-none"><CardHeader><CardTitle className="flex items-center gap-2 text-[#115e59]"><BarChart3 />Mathematical model</CardTitle><CardDescription className="text-teal-800/70">Equations powering the FastAPI solver.</CardDescription></CardHeader><CardContent className="grid gap-4 text-sm text-teal-950 md:grid-cols-[1fr_1fr]"><div className="rounded-lg border border-teal-100 bg-white/60 p-4 font-mono text-sm leading-8">r = q − y<br />r = Hℓ + ε<br />ℓ̂ = argmin<sub>ℓ ≥ 0</sub> ‖Hℓ − r‖²</div><div className="space-y-2 leading-6"><p><strong>q</strong> expected flow · <strong>y</strong> observed flow · <strong>H</strong> leak-signature matrix</p><p><strong>ℓ</strong> leak-rate vector · <strong>ε</strong> sensor noise · <strong>r</strong> flow residual</p><p className="text-teal-800/80">Solver: <code className="rounded bg-white px-1.5 py-0.5 text-xs">scipy.optimize.nnls</code> · Units: L/s · Results are estimates, not confirmation.</p></div></CardContent></Card>
-      </div></main></div>
+  function exportCsv() {
+    const rows = [['Pipe', 'Expected Flow (L/h)', 'Observed Flow (L/h)', 'Deficit (L/h)', 'Estimated Leak (L/h)'], ...pipes.map((p) => [p.id, p.expected, p.observed, p.leak, (p.leak * .97).toFixed(1)])]
+    const csv = rows.map((row) => row.join(',')).join('\n')
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
+    link.download = 'aquatrace-sensor-readings.csv'
+    link.click()
+    URL.revokeObjectURL(link.href)
+  }
+
+  return (
+    <div className="min-h-screen bg-[#f6f8fb] text-slate-900 md:flex">
+      <Sidebar active={active} setActive={setActive} API_URL={API_URL} />
+      <main className="min-w-0 flex-1">
+        <header className="flex flex-col gap-4 border-b border-slate-200 bg-white px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-600">University engineering demonstrator</p>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">{pageTitles[active]}</h1>
+          </div>
+          <div className="flex items-center gap-3">
+            <Badge variant="outline" className="gap-1.5 border-teal-200 bg-teal-50 text-teal-700"><span className="size-1.5 rounded-full bg-teal-500" />Simulation online</Badge>
+            <Button variant="outline" size="sm" onClick={exportCsv}><Download data-icon="inline-start" />Export CSV</Button>
+          </div>
+        </header>
+        <div className="mx-auto max-w-[1480px] space-y-6 p-5 sm:p-8">
+          {active === 'Overview' && <OverviewPage pipes={pipes} totalExpected={totalExpected} totalLoss={totalLoss} observed={observed} percent={percent} threshold={threshold} chartData={chartData} hourlyData={hourlyData} />}
+          {active === 'Sensor Rating' && <SensorRatingPage pipes={pipes} updateLeak={updateLeak} />}
+          {active === 'Leak Analysis' && <LeakAnalysisPage pipes={pipes} totalExpected={totalExpected} totalLoss={totalLoss} />}
+          {active === 'Simulation' && <SimulationPage pipes={pipes} API_URL={API_URL} noise={noise} seed={seed} threshold={threshold} status={status} errorMessage={errorMessage} setNoise={setNoise} setSeed={setSeed} setThreshold={setThreshold} updateLeak={updateLeak} runSimulation={runSimulation} reset={reset} exportCsv={exportCsv} />}
+          {active === 'History' && <HistoryPage history={history} />}
+        </div>
+      </main>
+    </div>
+  )
 }
